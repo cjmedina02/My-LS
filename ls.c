@@ -6,6 +6,8 @@
 #include <grp.h>
 #include <time.h>
 
+/*IMPLEMENT SORT AND PADDING*/
+
 //helper function, check mode type
 void mode_string(mode_t mode, char *str) {
     if (S_ISDIR(mode))       str[0] = 'd';
