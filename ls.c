@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <dirent.h>
 #include <unistd.h> 
