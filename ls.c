@@ -6,8 +6,17 @@
 #include <pwd.h>
 #include <grp.h>
 #include <time.h>
+#include <string.h>
+#include <stdlib.h>
 
 /*IMPLEMENT SORT AND PADDING*/
+#define MAX_ENTRIES 1024
+#define MAX_NAME_LEN 256
+
+// int strcmp(const char *str1, const char *str2);
+int comp_names(const void* a, const void *b){
+    return strcmp((const char *) a, (const char *) b);
+}
 
 //helper function, check mode type
 void mode_string(mode_t mode, char *str) {
@@ -87,7 +96,7 @@ int main(int argc, char *argv[]) { //argv = array of strings
         }
     }
 
-   
+
     const char *path = (optind < argc) ? argv[optind] : ".";    //opendir() opens a directory stream corresponding to directory name
     
     DIR *dir = opendir(path);
@@ -96,17 +105,40 @@ int main(int argc, char *argv[]) { //argv = array of strings
         return 1;
     }
     
+    //an array of pointers to structs; holds file names and metadata
+    char names[MAX_ENTRIES][MAX_NAME_LEN];
+    int count = 0;
+
+
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL){
         if (!show_all && entry->d_name[0] == '.') continue;
+    //     if (long_format) {
+    //         print_long(path, entry->d_name);
+    //     }
+    //     else {
+    //         printf("%s\n", entry->d_name);
+    //     }
+        if (count >= MAX_ENTRIES) break;
+
+        // char *strncpy(char *dest, const char *src, size_t n);
+        strncpy(names[count], entry->d_name, MAX_NAME_LEN - 1);
+        names[count][MAX_NAME_LEN - 1] = '\0';
+        count++;
+    }
+    closedir(dir);
+
+    qsort(names, count, MAX_NAME_LEN, comp_names);
+
+    for (int i = 0; i < count; i++){
         if (long_format) {
-            print_long(path, entry->d_name);
+            print_long(path, names[i]);
         }
         else {
-            printf("%s\n", entry->d_name);
+            printf("%s\n", names[i]);
+
         }
     }
 
-    closedir(dir);
     return 0;
 }
