@@ -42,7 +42,7 @@ void mode_string(mode_t mode, char *str) {
 
 }
 
-void print_long(const char *dir, const char *name) {
+void print_long(const char *dir, const char *name, int max_user_len, int max_grp_len, int max_size_len, int max_link_len) {
     char fullpath[4096];
     snprintf(fullpath, sizeof(fullpath), "%s/%s", dir, name);
 
@@ -55,7 +55,7 @@ void print_long(const char *dir, const char *name) {
     mode_string(st.st_mode, modes);
 
     struct passwd *pw = getpwuid(st.st_uid);
-    struct group *gr = getgrgid(st.st_uid);
+    struct group *gr = getgrgid(st.st_gid);
     const char *user = pw ? pw->pw_name : "?";
     const char *group = gr ? gr->gr_name : "?";
 
@@ -64,12 +64,12 @@ void print_long(const char *dir, const char *name) {
     struct tm *tm = localtime(&st.st_mtim.tv_sec);
     strftime(time_buf, sizeof(time_buf), "%b %e %H:%M", tm);
 
-    printf("%s %lu %s %s %ld %s %s\n", 
+    printf("%s %*lu %-*s %-*s %*ld %s %s\n", 
         modes, 
-        (unsigned long) st.st_nlink,
-        user, 
-        group,
-        (long) st.st_size,
+        max_link_len, (unsigned long) st.st_nlink,
+        max_user_len, user, 
+        max_grp_len, group,
+        max_size_len, (long) st.st_size,
         time_buf, 
         name
     );
@@ -81,6 +81,11 @@ long long_format = 0;
 
 int main(int argc, char *argv[]) { //argv = array of strings
     int opt;
+    int max_user_len = 0;
+    int max_grp_len = 0;
+    int max_size_len = 0;
+    int max_link_len = 0;
+    // char fullpath[4096];
 
     while ((opt = getopt(argc, argv, "al")) != -1){
         switch (opt) {
@@ -113,39 +118,71 @@ int main(int argc, char *argv[]) { //argv = array of strings
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL){
         if (!show_all && entry->d_name[0] == '.') continue;
-    //     if (long_format) {
-    //         print_long(path, entry->d_name);
-    //     }
-    //     else {
-    //         printf("%s\n", entry->d_name);
-    //     }
         if (count >= MAX_ENTRIES) break;
 
         // char *strncpy(char *dest, const char *src, size_t n);
-        strncpy(names[count], entry->d_name, MAX_NAME_LEN - 1);
+        strncpy(names[count], entry->d_name, MAX_NAME_LEN);
         names[count][MAX_NAME_LEN - 1] = '\0';
         count++;
     }
     closedir(dir);
 
+    //sort names
     qsort(names, count, MAX_NAME_LEN, comp_names);
 
-    for (int i = 0; i < count; i++){
+    //only if long format
+    if (long_format) {
+        char inspect_path[4096];
 
-        int curr_length = strlen(names[i]);
+        for (int i = 0; i < count; i++) {
+            //base path and names[i] into inspect_path
+            snprintf(inspect_path, sizeof(inspect_path), "%s/%s", path, names[i]);
+           
+            //lstat on inspect_path
+            struct stat st;
+            if (lstat(inspect_path, &st) < 0) continue;
 
-        if (curr_length > MAX_NAME_LEN) {
-            curr_length = MAX_NAME_LEN;
-        }
-        
-        int padding = curr_length - 1;
+            //getpwuid(st.st_uid) and getgrgid(st.st_gid)
+            struct passwd *pw = getpwuid(st.st_uid);
+            struct group *gr = getgrgid(st.st_uid);
+            const char *user = pw ? pw->pw_name : "?";
+            const char *group = gr ? gr->gr_name : "?";
 
-        if (long_format) {
-            print_long(path, names[i]);
-        }
-        else {
-            printf("%-*s\n", padding, names[i]);
+            //calculate string length of user and group name
+            int u_len = strlen(user);
+            if (u_len > max_user_len) {
+                max_user_len = u_len;
+            }
+            
+            int gr_len = strlen(group);
+            if (gr_len > max_grp_len) {
+                max_grp_len = gr_len;
+            }
+
+            //calculate digit length of st.st_size and st.st_nlink 
+            int sz_len = snprintf(NULL, 0, "%ld", (long)st.st_size);
+            if (sz_len > max_size_len) {
+                max_size_len = sz_len;
+            }
+
+            int lnk_len = snprintf(NULL, 0, "%lu", (unsigned long)st.st_nlink);
+            if (lnk_len > max_link_len) {
+                max_link_len = lnk_len;
+            }
         }
     }
+
+    for (int i = 0; i < count; i++) {
+        if (long_format) {
+            //calculated max trackers into print_long
+            print_long(path, names[i], max_user_len, max_grp_len, max_size_len, max_link_len);
+        }
+        else {
+            //standard print
+            printf("%s\n", names[i]);
+        }
+
+    }
+
     return 0;
 }
