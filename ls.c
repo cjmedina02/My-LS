@@ -131,14 +131,21 @@ int main(int argc, char *argv[]) { //argv = array of strings
     qsort(names, count, MAX_NAME_LEN, comp_names);
 
     for (int i = 0; i < count; i++){
+
+        int curr_length = strlen(names[i]);
+
+        if (curr_length > MAX_NAME_LEN) {
+            curr_length = MAX_NAME_LEN;
+        }
+        
+        int padding = curr_length - 1;
+
         if (long_format) {
             print_long(path, names[i]);
         }
         else {
-            printf("%s\n", names[i]);
-
+            printf("%-*s\n", padding, names[i]);
         }
     }
-
     return 0;
 }
